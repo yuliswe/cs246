@@ -1,0 +1,39 @@
+#!/bin/bash
+if [ ${#} -lt 1 ]; then
+    suiteFile=$(ls -1 | egrep 'suite')
+    echo "No suite file argument. Using '${suiteFile}' as the suite file." >&2
+else
+    suiteFile="${1}"
+fi
+if [ ${#} -lt 2 ]; then
+    prog="./$(ls -1 | egrep '^a[0-9]+(q[0-9]+)?$')"
+    echo "No program file argument. Using '${prog}' as the program. " >&2
+else
+    prog="${2}"
+fi
+errorNum=0
+checkedSuites=0
+while IFS='\n' read testSuite; do
+    if [ ! -r "${testSuite}.in" ] || [ ! -r "${testSuite}.out" ]; then
+        echo "missing or unreadable ${testSuite}.in or ${testSuite}.out files" >&2
+        exit 2
+    fi
+    if [ -r "${testSuite}.args" ]; then
+        result=$(xargs -a "${testSuite}.args" "${prog}" < "${testSuite}.in")
+    else
+        result=`"${prog}" < "${testSuite}.in"`
+    fi
+    if [ "${result}" != "`cat \"${testSuite}.out\"`" ]; then
+        ((errorNum++))
+        echo "Test failed: ${testSuite}"
+        echo "Input:"
+        cat "${testSuite}.in"
+        echo "Expected:"
+        cat "${testSuite}.out"
+        echo "Actual:"
+        echo "${result}"
+        echo "****************************************"
+    fi
+    ((checkedSuites++))
+done < "${suiteFile}"
+echo -e "\nChecked suites: ${checkedSuites}, errors: ${errorNum}\n"
